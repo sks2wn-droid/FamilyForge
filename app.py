@@ -5,7 +5,7 @@ A beginner-friendly front end for digitizing, cleaning, and organizing family ph
 
 import streamlit as st
 from pathlib import Path
-import sqlite3
+import time
 
 # ---------------------------------------------------------------------------
 # Page configuration
@@ -22,7 +22,6 @@ st.set_page_config(
 # ---------------------------------------------------------------------------
 st.markdown("""
 <style>
-    /* Soft family-history aesthetic */
     .main-header {
         font-size: 2.4rem;
         font-weight: 700;
@@ -52,10 +51,6 @@ st.markdown("""
         color: #3498db;
         margin-bottom: 0.5rem;
     }
-    .big-action {
-        font-size: 1.1rem;
-        padding: 0.8rem 1.5rem;
-    }
     .success-box {
         background: #e8f5e9;
         border-left: 5px solid #4caf50;
@@ -77,7 +72,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
-# Sidebar – simple & clear
+# Sidebar
 # ---------------------------------------------------------------------------
 st.sidebar.markdown("## 🖼️ FamilyForge")
 st.sidebar.caption("Your family photo helper")
@@ -103,19 +98,19 @@ st.sidebar.markdown(
 st.sidebar.caption("FamilyForge v0.1 • Free & private")
 
 # ---------------------------------------------------------------------------
-# Helper: simple DB placeholder (future)
+# Helpers
 # ---------------------------------------------------------------------------
 def get_stats():
-    """Return placeholder stats. Will be real once backend is wired."""
-    return {
-        "total": 0,
-        "cleaned": 0,
-        "people": 0,
-        "pending": 0,
-    }
+    return {"total": 0, "cleaned": 0, "people": 0, "pending": 0}
+
+def count_images(folder: Path):
+    exts = {".jpg", ".jpeg", ".png", ".tif", ".tiff", ".bmp", ".webp"}
+    if not folder.exists():
+        return 0
+    return sum(1 for f in folder.iterdir() if f.is_file() and f.suffix.lower() in exts)
 
 # ===========================================================================
-# HOME – Welcoming entry point with guided roadmap
+# HOME
 # ===========================================================================
 if page == "Home":
     st.markdown('<p class="main-header">Welcome to FamilyForge</p>', unsafe_allow_html=True)
@@ -125,16 +120,13 @@ if page == "Home":
         unsafe_allow_html=True,
     )
 
-    # ---- Big starting choices ----
     st.markdown("### What would you like to do?")
     c1, c2, c3 = st.columns(3)
     with c1:
         if st.button("📷 I just scanned some photos", use_container_width=True, type="primary"):
-            st.session_state["nav_hint"] = "Clean Up Photos"
             st.info("Go to **Clean Up Photos** in the sidebar to get started.")
     with c2:
         if st.button("🗂️ I already have digital photos", use_container_width=True):
-            st.session_state["nav_hint"] = "Name the People"
             st.info("You can jump to **Name the People** or **Look Through Photos**.")
     with c3:
         if st.button("🛠️ Show me everything", use_container_width=True):
@@ -142,7 +134,6 @@ if page == "Home":
 
     st.divider()
 
-    # ---- Visual 4-step roadmap ----
     st.markdown("### How it works (simple 4 steps)")
     r1, r2, r3, r4 = st.columns(4)
 
@@ -187,49 +178,30 @@ if page == "Home":
             unsafe_allow_html=True,
         )
 
-    st.markdown("")
     with st.expander("More detail – the free tools we use together"):
         st.markdown(
             """
 **1. Scanning**  
-We recommend the free tool **scansplitter** for multi-photo scans and album pages.  
-It automatically finds each photo, rotates it, and lets you add names/dates.
+We recommend the free tool **scansplitter** for multi-photo scans and album pages.
 
 **2. Cleaning & organizing**  
-That’s what FamilyForge does – straighten, remove borders, improve clarity,  
-find faces, and help you name people.
+That’s what FamilyForge does – straighten, remove borders, improve clarity, find faces, and help you name people.
 
 **3. Long-term library**  
-When you’re ready, the free program **Immich** (runs on your own computer)  
-gives you a beautiful Google-Photos-style experience with face search,  
-timeline, and mobile apps for the family. Everything stays private on your hardware.
-
-All of this is free and open-source. You own the files forever.
+When you’re ready, the free program **Immich** gives you a beautiful Google-Photos-style experience. Everything stays private on your hardware.
             """
         )
 
-    # ---- Status (only shows useful numbers later) ----
-    stats = get_stats()
-    if stats["total"] > 0:
-        st.divider()
-        st.markdown("### Your project so far")
-        m1, m2, m3, m4 = st.columns(4)
-        m1.metric("Photos", stats["total"])
-        m2.metric("Cleaned", stats["cleaned"])
-        m3.metric("People named", stats["people"])
-        m4.metric("Still to review", stats["pending"])
-    else:
-        st.markdown("")
-        st.markdown(
-            '<div class="info-box">'
-            'No photos yet. Start by going to <strong>Clean Up Photos</strong> '
-            'and pointing FamilyForge at a folder of scanned images.'
-            '</div>',
-            unsafe_allow_html=True,
-        )
+    st.markdown(
+        '<div class="info-box">'
+        'No photos yet. Start by going to <strong>Clean Up Photos</strong> '
+        'and pointing FamilyForge at a folder of scanned images.'
+        '</div>',
+        unsafe_allow_html=True,
+    )
 
 # ===========================================================================
-# CLEAN UP PHOTOS – simplified processing
+# CLEAN UP PHOTOS – now with real processing
 # ===========================================================================
 elif page == "Clean Up Photos":
     st.markdown('<p class="main-header">Clean Up Your Scans</p>', unsafe_allow_html=True)
@@ -239,14 +211,13 @@ elif page == "Clean Up Photos":
         unsafe_allow_html=True,
     )
 
-    # Folder selection
     st.markdown("### 1. Where are your scanned photos?")
     input_folder = st.text_input(
         "Folder path",
         value="./scans",
         help="Type or paste the full path to the folder that contains your scanned images.",
         label_visibility="collapsed",
-        placeholder="Example: /Users/you/Pictures/FamilyScans or C:\\Photos\\Scans",
+        placeholder=r"Example: C:\Users\You\Pictures\FamilyScans",
     )
     output_folder = st.text_input(
         "Where should the cleaned photos be saved?",
@@ -254,9 +225,16 @@ elif page == "Clean Up Photos":
         help="A new folder will be created if it doesn’t exist.",
     )
 
+    # Show how many images are waiting
+    in_path = Path(input_folder)
+    n_images = count_images(in_path)
+    if in_path.exists():
+        st.caption(f"Found **{n_images}** image(s) in that folder.")
+    else:
+        st.caption("Folder not found yet – enter a valid path.")
+
     st.markdown("### 2. What would you like us to do?")
 
-    # Simple primary options as big checkboxes / cards
     do_straighten = st.checkbox(
         "**Straighten & crop** – fix tilted photos and remove white scanner borders",
         value=True,
@@ -266,57 +244,78 @@ elif page == "Clean Up Photos":
         value=True,
     )
     do_faces = st.checkbox(
-        "**Find faces** – detect people so you can name them later",
-        value=True,
+        "**Find faces** – detect people so you can name them later (coming soon)",
+        value=False,
+        disabled=True,
     )
 
-    # Advanced options hidden by default
     with st.expander("Extra options (optional)"):
-        do_ai_restore = st.checkbox(
-            "Restore faces with AI (slower, higher quality for damaged photos)",
-            value=False,
-            help="Uses GFPGAN / CodeFormer. Needs models downloaded first.",
-        )
-        do_upscale = st.checkbox(
-            "Upscale small photos (Real-ESRGAN)",
-            value=False,
-        )
-        do_ocr = st.checkbox(
-            "Try to read text on the back of photos",
-            value=False,
-        )
+        do_ai_restore = st.checkbox("Restore faces with AI (coming soon)", value=False, disabled=True)
         quality = st.slider("JPEG quality for cleaned copies", 75, 100, 92)
 
     st.markdown("")
     if st.button("✨ Clean These Photos", type="primary", use_container_width=True):
         if not input_folder or not Path(input_folder).exists():
             st.error("Please enter a valid folder path that contains images.")
+        elif n_images == 0:
+            st.warning("No supported images found in that folder (.jpg, .png, .tif, etc.).")
         else:
-            with st.spinner("Working on your photos… (this is a preview – full engine coming next)"):
-                # Placeholder for real pipeline
-                import time
-                progress = st.progress(0)
-                for i in range(100):
-                    time.sleep(0.01)
-                    progress.progress(i + 1)
-                st.markdown(
-                    '<div class="success-box">'
-                    '<strong>Done!</strong> In the full version your cleaned photos '
-                    'will appear here and in the output folder.<br><br>'
-                    'Next suggested step: go to <strong>Name the People</strong> '
-                    'so FamilyForge can learn your family.'
-                    '</div>',
-                    unsafe_allow_html=True,
+            try:
+                from familyforge.preprocess import process_batch
+            except Exception as e:
+                st.error(
+                    "Could not load the cleaning engine. Make sure you installed the packages:\n"
+                    "`pip install opencv-python numpy pillow`\n\n"
+                    f"Details: {e}"
                 )
+            else:
+                with st.spinner(f"Cleaning {n_images} photo(s)… this may take a little while"):
+                    progress = st.progress(0)
+                    status = st.empty()
+
+                    # We call the batch function; for progress we can process one-by-one if preferred
+                    try:
+                        results = process_batch(
+                            input_folder,
+                            output_folder,
+                            do_deskew=do_straighten,
+                            do_crop=do_straighten,
+                            do_artifacts=do_clearer,
+                            do_enhance=do_clearer,
+                            jpeg_quality=quality,
+                        )
+                        progress.progress(100)
+
+                        successes = [r for r in results if "error" not in r]
+                        failures = [r for r in results if "error" in r]
+
+                        st.markdown(
+                            f'<div class="success-box">'
+                            f'<strong>Done!</strong> Cleaned {len(successes)} photo(s).'\n                            f'<br>Saved to: <code>{Path(output_folder).resolve()}</code>'
+                            f'<br><br>'
+                            f'Next suggested step: go to <strong>Name the People</strong> '
+                            f'(face detection coming soon).'
+                            f'</div>',
+                            unsafe_allow_html=True,
+                        )
+
+                        if failures:
+                            st.warning(f"{len(failures)} file(s) had problems.")
+                            with st.expander("See problems"):
+                                for f in failures:
+                                    st.write(f.get("input"), "→", f.get("error"))
+
+                    except Exception as e:
+                        st.error(f"Something went wrong while cleaning: {e}")
 
     st.markdown("### Preview")
     st.info(
-        "After processing, side-by-side before/after photos will appear here "
-        "so you can quickly check the results."
+        "After processing, your cleaned photos will be in the output folder. "
+        "You can open that folder to check them."
     )
 
 # ===========================================================================
-# NAME THE PEOPLE – face review made simple
+# NAME THE PEOPLE
 # ===========================================================================
 elif page == "Name the People":
     st.markdown('<p class="main-header">Name the People in Your Photos</p>', unsafe_allow_html=True)
@@ -330,13 +329,12 @@ elif page == "Name the People":
     st.markdown(
         '<div class="info-box">'
         'No faces have been found yet.<br>'
-        'First go to <strong>Clean Up Photos</strong> and process a folder '
-        '(make sure “Find faces” is checked). Then come back here.'
+        'First go to <strong>Clean Up Photos</strong> and process a folder. '
+        'Face detection is coming in the next update.'
         '</div>',
         unsafe_allow_html=True,
     )
 
-    # Placeholder for future face cards
     st.markdown("### When faces appear they will look like this:")
     demo1, demo2, demo3 = st.columns(3)
     with demo1:
@@ -357,14 +355,12 @@ elif page == "Name the People":
             """
 - Name the clearest, most front-facing photos first.
 - After you name 3–5 people, the system can match many more automatically.
-- If two groups are actually the same person, you will be able to merge them.
-- Children’s faces change a lot over the years – you may need to name a few '
-  from different decades.
+- Children’s faces change a lot over the years – you may need to name a few from different decades.
             """
         )
 
 # ===========================================================================
-# LOOK THROUGH PHOTOS – gallery & search
+# LOOK THROUGH PHOTOS
 # ===========================================================================
 elif page == "Look Through Photos":
     st.markdown('<p class="main-header">Look Through Your Photos</p>', unsafe_allow_html=True)
@@ -374,10 +370,9 @@ elif page == "Look Through Photos":
         unsafe_allow_html=True,
     )
 
-    # Simple filters
     f1, f2, f3, f4 = st.columns(4)
     with f1:
-        st.selectbox("Person", ["Anyone", "Grandma", "Dad", "Mom"], help="Once people are named they appear here")
+        st.selectbox("Person", ["Anyone", "Grandma", "Dad", "Mom"])
     with f2:
         st.selectbox("Decade", ["Any time", "1940s", "1950s", "1960s", "1970s", "1980s", "1990s", "2000s"])
     with f3:
@@ -385,11 +380,9 @@ elif page == "Look Through Photos":
     with f4:
         st.text_input("Search words", placeholder="birthday, beach, Christmas…")
 
-    st.markdown("")
     st.info(
         "Your photo grid will appear here once you have processed some images.\n\n"
-        "You will be able to click any photo to see it larger, add notes, "
-        "or add it to an album."
+        "You will be able to click any photo to see it larger, add notes, or add it to an album."
     )
 
 # ===========================================================================
@@ -415,10 +408,7 @@ elif page == "Make Albums & Share":
         st.selectbox("Time period", ["All years", "1950s–1960s", "1970s", "1980s"])
 
     if st.button("📖 Create Memory Book PDF", type="primary"):
-        st.success(
-            "In the full version a beautiful PDF will be generated here "
-            "with captions and a timeline."
-        )
+        st.success("In the full version a beautiful PDF will be generated here with captions and a timeline.")
 
     st.divider()
     st.markdown("### Other ways to share")
@@ -460,7 +450,7 @@ elif page == "Preferences":
     if st.button("Save Preferences"):
         st.success("Preferences saved. (In the full version they will persist.)")
 
-# Footer note on every page
+# Footer
 st.markdown("---")
 st.caption(
     "FamilyForge is free, open-source, and keeps all your photos on your own computer. "
