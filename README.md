@@ -6,66 +6,107 @@ Turn boxes of old prints into a clean, searchable digital archive. No subscripti
 
 ---
 
-## Fastest way to start (ZIP)
+## Step-by-Step Installation Guide (Windows)
 
-1. **Download the ZIP**  
-   Go to the green **Code** button on this page → **Download ZIP**.  
-   (Or grab a release if one is available.)
+This is the method that works most reliably.
 
-2. **Extract** the folder anywhere you like.
+### 1. Install Python (only needed once)
 
-3. **Run it**
+1. Go to https://www.python.org/downloads/
+2. Download the latest **Python 3.12** (or 3.11) installer for Windows.
+3. Run the installer.
+4. **IMPORTANT**: On the first screen, check the box that says **“Add python.exe to PATH”**.
+5. Click “Install Now” and finish the installation.
+6. Restart your computer (or at least close and reopen any open Command Prompt windows).
 
-   **Windows**  
-   Double-click `start.bat`
+### 2. Download FamilyForge
 
-   **Mac / Linux**  
-   Open Terminal in the folder and run:
-   ```bash
-   chmod +x start.sh
-   ./start.sh
-   ```
+1. On this GitHub page, click the green **Code** button → **Download ZIP**.
+2. Extract the ZIP anywhere you like (for example Desktop or Documents).
+3. You should now have a folder called something like `FamilyForge-main`.
 
-4. Your browser will open automatically with the FamilyForge interface.
+### 3. First-time setup (manual method – most reliable)
 
-That’s it. The first run installs the needed packages (takes a minute or two). After that it starts almost instantly.
+1. Open the extracted FamilyForge folder.
+2. Hold the **Shift** key and right-click inside the folder → choose **“Open PowerShell window here”** or **“Open in Terminal”**.
+3. Copy and paste these commands **one by one**, pressing Enter after each:
 
----
+```bat
+py -3 -m venv venv
+```
 
-## What you can do today
+```bat
+venv\Scripts\activate
+```
 
-- Point it at a folder of scanned photos
-- Automatically straighten, crop scanner borders, and improve faded pictures
-- Start naming the people in the photos
-- Keep everything private and local
+```bat
+python -m pip install --upgrade pip
+```
 
-Later we can add AI face restoration, full face recognition, photo books, and Immich integration — the friendly interface is already ready for them.
+```bat
+pip install streamlit opencv-python-headless numpy pillow
+```
 
----
+```bat
+streamlit run app.py
+```
 
-## Requirements
+4. After the last command you should see a line that says:
 
-- Python 3.9 or newer (most computers already have it)
-- That’s all for the core experience
+```
+Local URL: http://localhost:8501
+```
 
-Optional later: a GPU for faster AI restore (not required).
+5. Open that address in Chrome or Edge (or the browser should open automatically).
 
----
+You only need to do the long install steps **once**. After that, starting is much faster (see below).
 
-## Manual start (if you prefer)
+### 4. Starting FamilyForge next time
 
-```bash
-pip install -r requirements.txt
+1. Open the FamilyForge folder.
+2. Open PowerShell / Terminal in that folder again.
+3. Run only these two lines:
+
+```bat
+venv\Scripts\activate
 streamlit run app.py
 ```
 
 ---
 
+## Alternative: One-click start.bat
+
+After you have successfully run the manual method once, you can try double-clicking `start.bat`.
+
+If the black window opens and closes immediately, use the manual method above instead — it is more reliable.
+
+---
+
+## What you can do today
+
+- **Clean Up Photos** – straighten, crop scanner borders, improve faded pictures, reduce dust
+- **Browse** – see thumbnails of your cleaned photos
+- **Name the People** – basic face detection (clustering coming next)
+- Everything stays private on your computer
+
+---
+
 ## Project layout
 
-- `app.py` – the easy-to-use interface
-- `db.py` – keeps track of your photos and people
+- `app.py` – the friendly interface
 - `familyforge/` – the cleanup and processing tools
-- `start.bat` / `start.sh` – one-click launchers
+- `db.py` – photo and people tracking (being expanded)
+- `start.bat` / `start.sh` – launchers
+- `requirements.txt` – the packages we need
+
+---
+
+## Coming next
+
+- Face clustering (group the same person together)
+- OCR for text on the backs of photos
+- Better installation experience
+- Memory book / album generator
+- Immich export helpers
 
 Enjoy digitizing your family history!
